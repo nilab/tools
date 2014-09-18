@@ -1,0 +1,79 @@
+#!/usr/bin/env ruby
+ 
+require 'fileutils'
+ 
+# コピー先のファイルパスを求める
+# ==== Args
+# path :: [String] コピー元のファイルパス
+# base_dir :: [String] コピー元の基準絶対パス
+# dst_dir :: [String] コピー先のディレクトリパス
+# separator :: [String] ディレクトリ区切り文字を置換する文字列
+# ==== Return
+# [String] コピー先のファイルパス
+def get_new_file_path(path, base_dir, dst_dir, separator='_')
+  path = File.expand_path(path)
+  base_dir_len = (base_dir + '/').size()
+  dirs = path[base_dir_len, path.size() - base_dir_len]
+  new_file_name = dirs.gsub(/\//) { separator }
+  new_file_path = File.join(dst_dir, new_file_name)
+  if FileTest.exist?(new_file_path)
+    # すでにファイルが存在している場合に
+    # 別のファイル名を提案するならこのへんを修正
+    return nil
+  else
+    return new_file_path
+  end
+end
+ 
+# ディレクトリ内のファイルをコピーする
+# ==== Args
+# src_dir :: [String] コピー元のディレクトリパス
+# dst_dir :: [String] コピー先のディレクトリパス
+# base_dir :: [String] コピー元の基準絶対パス
+def flat_copy(src_dir, dst_dir, base_dir=nil)
+  if !base_dir
+    base_dir = File.expand_path(src_dir)
+  end
+  files = Dir.entries(src_dir)
+  files.each{|file|
+    if file != '.' && file != '..' # . とか .. とかいらない
+      path = File.join(src_dir, file)
+      if FileTest.directory?(path)
+        # 再帰的に処理
+        flat_copy(path, dst_dir, base_dir)
+      elsif FileTest.file?(path)
+        new_file_path = get_new_file_path(path, base_dir, dst_dir)
+        if new_file_path != nil
+          # ファイルコピー
+          # 更新時刻と、可能なら所有ユーザ・所有グループもコピー
+          FileUtils.copy(
+            path, new_file_path,
+            {:preserve => true, :verbose => true})
+          #puts "COPY: #{path} => #{new_file_path}"
+        else
+          # 新しいファイル名が生成できなかった
+          puts "Could't copy file: #{path}"
+        end
+      end
+    end
+  }
+end
+ 
+# 引数が足りないときは usage を表示してプログラムを終了
+if ARGV.size < 2
+  puts "Usage: ruby #{File.basename(__FILE__)} <src_dir> <dst_dir>"
+  exit()
+end
+ 
+# コピー元ディレクトリパスとコピー先ディレクトリパス
+src_dir = ARGV[0]
+dst_dir = ARGV[1]
+ 
+# コピー先ディレクトリが無いときは作る
+if FileTest.exist?(dst_dir) == false
+  FileUtils.mkdir_p(dst_dir)
+end
+ 
+# メインのファイルコピー処理
+flat_copy(src_dir, dst_dir)
+

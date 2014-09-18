@@ -1,0 +1,115 @@
+#!/usr/bin/env ruby
+ 
+require 'date' # using DateTime
+ 
+# 年表現を正規化
+def normalize_year(y)
+  # 年が2桁以下の場合、2000年以降とみなす
+  # return (y < 100) ? (2000 + y) : y
+ 
+  # 年が2桁以下の場合、平成年とみなす
+  # return (y < 100) ? (1988 + y) : y
+ 
+  # 何もしない
+  return y
+end
+ 
+# フォーマットがわからない文字列を日時オブジェクトへ変換する
+def parse_datetime(s)
+ 
+  # 数字以外の文字で分割する
+  strlist = s.split(/\D/)
+  # 空文字列を削除
+  strlist.reject!{|i|i.empty?}
+ 
+  # 整数に変換
+  intlist = strlist.map(&:to_i)
+ 
+  # パターンに応じて DateTime オブジェクトを生成する
+  if intlist.length == 6 then
+    # 6個のときは[年,月,日,時,分,秒]
+    intlist[0] = normalize_year(intlist[0])
+    return DateTime.new(*intlist)
+
+  elsif intlist.length == 3 then
+    # 3個のときは[年,月,日]
+    intlist[0] = normalize_year(intlist[0])
+    return DateTime.new(*intlist)
+ 
+  elsif strlist.length == 2 then
+    # 2個のときは[年月日,時分秒]
+    strlist = [
+      strlist[0][ 0..-5],
+      strlist[0][-4..-3],
+      strlist[0][-2..-1],
+      strlist[1][ 0..-5],
+      strlist[1][-4..-3],
+      strlist[1][-2..-1],
+    ]
+    intlist = strlist.map(&:to_i)
+    intlist[0] = normalize_year(intlist[0])
+    return DateTime.new(*intlist)
+ 
+  elsif strlist.length == 1 then
+    # 1個のときは[年月日時分秒]
+    strlist = [
+      strlist[0][  0..-11],
+      strlist[0][-10..-9],
+      strlist[0][ -8..-7],
+      strlist[0][ -6..-5],
+      strlist[0][ -4..-3],
+      strlist[0][ -2..-1],
+    ]
+    intlist = strlist.map(&:to_i)
+    intlist[0] = normalize_year(intlist[0])
+    return DateTime.new(*intlist)
+ 
+  else
+    # あきらめて標準ライブラリにまかせる
+    return DateTime.parse(s)
+  end
+end
+
+def get_new_file_path(filepath, datetime)
+  datetimestr = datetime.strftime('%Y%m%d_%H%M%S')
+  ext = File.extname(filepath)
+  dir, file = File::split(filepath)
+  return "#{dir}/#{datetimestr}#{ext}"
+end
+ 
+def rename_by_datetime(filepath)
+  begin
+    ext = File.extname(filepath)
+    base = File::basename(filepath, ext)
+    datetime = parse_datetime(base)
+    if datetime != nil
+      newfilepath = get_new_file_path(filepath, datetime)
+      # リネーム先にファイルが存在する場合はリネームしない
+      if !File.exist?(newfilepath)
+        File.rename(filepath, newfilepath)
+        return newfilepath
+      else
+        return nil
+      end
+    else
+      return nil
+    end
+  rescue
+    return nil
+  end
+end
+ 
+ARGV.each{|filepath|
+  newfilepath = rename_by_datetime(filepath)
+  if newfilepath != nil
+    # success
+    puts "rename: #{filepath} -> #{newfilepath}"
+  else
+    # failure or untouched
+    puts "keep: #{filepath}"
+  end
+}
+ 
+if ARGV.size < 1
+  puts "Usage: #{File.basename(__FILE__)} <files>"
+end

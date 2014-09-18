@@ -1,0 +1,58 @@
+#!/usr/bin/env ruby
+# coding: utf-8
+$KCODE='u'
+ 
+require 'optparse'
+require 'rubygems'
+require 'exifr'
+ 
+def get_opts(argv)
+  opts = {}
+  OptionParser.new {|opt|
+    opt.on('-r') {|b| opts[:recursive] = b }
+    opt.on('-R') {|b| opts[:recursive] = b }
+    opt.on('--recursive') {|b| opts[:recursive] = b }
+    opt.parse!(argv)
+  }
+  return opts
+end
+
+def check_exif_gps(filepath)
+  begin
+    exif = EXIFR::JPEG::new(filepath)
+    if exif.gps then
+      print filepath
+      print ": "
+      print exif.gps.latitude.to_s
+      print ", "
+      print exif.gps.longitude.to_s
+      puts
+    else
+      #print filepath
+      #puts
+    end
+  rescue
+    #print filepath
+    #puts
+    # $stderr.puts $!.to_s
+    # $stderr.puts $!.backtrace.inspect
+  end
+end
+
+opts = get_opts(ARGV)
+if opts[:recursive] then
+  ARGV.each{|dirpath|
+    Dir.glob(dirpath + "/**/*").each{|filepath|
+      check_exif_gps(filepath)
+    }
+  }
+else
+  ARGV.each{|filepath|
+    check_exif_gps(filepath)
+  }
+end
+ 
+if ARGV.size < 1
+  puts "Usage: #{File.basename(__FILE__)} [-r] files/dirs"
+end
+
